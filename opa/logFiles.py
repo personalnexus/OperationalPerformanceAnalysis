@@ -20,9 +20,10 @@ class LogFile(object):
         try:
             with open(self.fileName) as f:
                 for line in f:
-                    timestamp, data = dataGetter(line)
+                    strippedLine = line.strip()
+                    timestamp, data = dataGetter(strippedLine)
                     if data:
-                        logFileEntry = LogFileEntry(line, self, timestamp, data)
+                        logFileEntry = LogFileEntry(strippedLine, self, timestamp, data)
                         result.append(logFileEntry)
         except IOError:
             pass
@@ -35,7 +36,7 @@ class LogFileEntry(object):
         self.line = line
         self.logFile = logFile
         self.time = time
-        self.data = data
+        self.data = data  # type:dict
 
     @property
     def timestamp(self):

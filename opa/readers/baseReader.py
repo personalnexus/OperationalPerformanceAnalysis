@@ -1,6 +1,8 @@
-import abc
 import os
+from datetime import datetime
 from opa.logFiles import LogFile, LogFileEntry
+import json
+import pandas as pd
 
 
 class BaseLogFileReader(object):
@@ -16,9 +18,21 @@ class BaseLogFileReader(object):
         for logFile in self._logFiles:
             self.logFileEntries.extend(logFile.getEntries(self.getDataFromLine))
 
-    # noinspection PyUnusedLocal
-    @abc.abstractmethod
     def getDataFromLine(self, line):
+        """
+        Check if canonical logging is found, otherwise delegate to derived class
+        """
+        substringIndex = line.find('.logCanonicalJson')
+        if substringIndex < 0:
+            result = self.getDataFromLineCore(line)
+        else:
+            time = self.getTimeFromLine(line)
+            data = json.loads(line[substringIndex+17:])
+            result = time, data
+        return result
+
+    # noinspection PyUnusedLocal
+    def getDataFromLineCore(self, line):
         """
         Override in derived classes to indicate whether to use the given line
         :param line:
@@ -26,3 +40,39 @@ class BaseLogFileReader(object):
         :rtype: dict
         """
         return None
+
+    def getDataFromSubstringInLine(self, line, parameters):
+        """
+        Can be called from derived classes to extract text when a given substring is found
+        :param line: the line to search
+        :param parameters: tuple of substring, key and valueGetter
+        :return: tuple of time and the extracted value from the first substring that was found
+        """
+        for (substring, key, valueGetter) in parameters:
+            substringIndex = line.find(substring)
+            if substringIndex >= 0:
+                time = self.getTimeFromLine(line)
+                value = valueGetter(substringIndex)
+                data = {key: value}
+                result = time, data
+                break
+        else:
+            result = (None, None)
+        return result
+
+    # noinspection PyMethodMayBeStatic
+    def getTimeFromLine(self, line):
+        """
+        Extracts the time (not the date!) from the given line. Override in derived classes for different date format
+        :param line: the current line
+        :return:
+        :rtype: datetime
+        """
+        result = datetime.time(datetime.strptime(line[:8], '%H:%M:%S'))
+        return result
+
+    def toDataFrame(self):
+        data = [entry.data for entry in self.logFileEntries]
+        index = [entry.timestamp for entry in self.logFileEntries]
+        df = pd.DataFrame(data, index)
+        return df

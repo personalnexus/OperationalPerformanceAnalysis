@@ -1,5 +1,4 @@
 from baseReader import BaseLogFileReader
-from datetime import datetime
 
 
 class NxLogFileReader(BaseLogFileReader):
@@ -7,15 +6,10 @@ class NxLogFileReader(BaseLogFileReader):
     def __init__(self, directory, fileNamePattern, relevantDates):
         super(NxLogFileReader, self).__init__(directory, fileNamePattern, relevantDates)
 
-    def getDataFromLine(self,
-                        line  # type: str
-                        ):
-        i = line.find('.logPerformance')
-        if i < 0:
-            result = (None, None)
-        else:
-            time = datetime.time(datetime.strptime(line[:8], '%H:%M:%S'))
-            performance = line[i+48:]  # 48 is the length of the filler text
-            data = {'Performance': int(performance)}
-            result = time, data
+    def getDataFromLineCore(self, line):
+        result = self.getDataFromSubstringInLine(line,
+                                                 [('.logPerformance', 'Performance', lambda i: int(line[i + 48:])),
+                                                  ('.handleConnect', 'Tcp', lambda i: 'Connect:' + line[i + 17:]),
+                                                  ('.handleDisconnect', 'Tcp', lambda i: 'Disconnect:' + line[i + 20:])]
+                                                 )
         return result

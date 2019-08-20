@@ -1,7 +1,8 @@
 import os
 from datetime import datetime
-from opa.logFiles import LogFile, LogFileEntry
+from opa.logFiles import LogFile, LogFileEntry, TimestampColumn
 import json
+import numpy as np
 import pandas as pd
 
 
@@ -72,7 +73,8 @@ class BaseLogFileReader(object):
         return result
 
     def toDataFrame(self):
-        data = [entry.data for entry in self.logFileEntries]
-        index = [entry.timestamp for entry in self.logFileEntries]
-        df = pd.DataFrame(data, index)
-        return df
+        data = [entry.getFullData() for entry in self.logFileEntries]
+        index = np.arange(0, len(data))
+        result = pd.DataFrame(data, index)
+        result.set_index(TimestampColumn, inplace=True)
+        return result

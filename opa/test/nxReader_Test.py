@@ -19,3 +19,10 @@ class NxTests(unittest.TestCase):
     def checkEntry(self, reader, index, expectedTimestamp, key, expectedValue):
         self.assertEqual(expectedTimestamp, reader.logFileEntries[index].timestamp)
         self.assertEqual(expectedValue, reader.logFileEntries[index].data.get(key, None))
+
+    def testEntriesToDataFrame(self):
+        reader = opa.test.readNxLogFileEntries()
+        df = reader.toDataFrame()
+        print df
+        self.assertEquals((7, 6), df.shape)
+        self.assertEquals('Timestamp', df.index.name)

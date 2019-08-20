@@ -2,6 +2,10 @@ import os
 from datetime import datetime
 
 
+TimestampColumn = 'Timestamp'
+LogfileColumn = 'LogFile'
+
+
 class LogFile(object):
 
     def __init__(self, directory, fileNamePattern, date):
@@ -41,3 +45,15 @@ class LogFileEntry(object):
     @property
     def timestamp(self):
         return datetime.combine(self.logFile.date, self.time)
+
+    def getFullData(self):
+        """
+        Take the data and add the entry's meta data as additional columns
+        :return:
+        :rtype: dict
+        """
+        result = {TimestampColumn: self.timestamp,
+                  LogfileColumn: self.logFile.fileName
+                  }
+        result.update(self.data)
+        return result

@@ -1,15 +1,21 @@
-from baseReader import BaseLogFileReader
+from opa.readers.baseReader import BaseLogFileReader
+from opa.extractors import Substring
 
 
 class NxLogFileReader(BaseLogFileReader):
 
-    def __init__(self, directory, fileNamePattern, relevantDates):
-        super(NxLogFileReader, self).__init__(directory, fileNamePattern, relevantDates)
-
-    def getDataFromLineCore(self, line):
-        result = self.getDataFromSubstringInLine(line,
-                                                 [('.logPerformance', 'Performance', lambda i: int(line[i + 48:])),
-                                                  ('.handleConnect', 'Tcp', lambda i: 'Connect:' + line[i + 17:]),
-                                                  ('.handleDisconnect', 'Tcp', lambda i: 'Disconnect:' + line[i + 20:])]
-                                                 )
-        return result
+    def __init__(self, directory: str, fileNamePattern: str):
+        super(NxLogFileReader, self).__init__('Nx',
+                                              directory,
+                                              fileNamePattern,
+                                              [
+                                                  Substring('.logPerformance',
+                                                            lambda line, i: {'Publish': int(line[i + 48:])},
+                                                            category1='Performance'),
+                                                  Substring('.handleConnect',
+                                                            lambda line, i: {'IP': line[i + 17:]},
+                                                            category1='Tcp', category2='Connect'),
+                                                  Substring('.handleDisconnect',
+                                                            lambda line, i: {'IP': line[i + 20:]},
+                                                            category1='Tcp', category2='Disconnect')
+                                              ])

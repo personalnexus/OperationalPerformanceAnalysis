@@ -1,6 +1,8 @@
 import os
-from datetime import datetime
-from opa.logFiles import LogFile, LogFileEntry, TimestampColumn
+from typing import List
+from datetime import date, time, datetime
+from opa import columns
+from opa.extractors import BaseExtractor
 import json
 import numpy as np
 import pandas as pd
@@ -8,61 +10,62 @@ import pandas as pd
 
 class BaseLogFileReader(object):
 
-    def __init__(self, directory, fileNamePattern, relevantDates):
+    def __init__(self, source: str, directory: str, fileNamePattern: str, extractors: List[BaseExtractor]):
         super(BaseLogFileReader, self).__init__()
-        absoluteDirectory = os.path.abspath(directory)
-        self._logFiles = [LogFile(absoluteDirectory, fileNamePattern, date) for date in relevantDates]
-        self.logFileEntries = []  # type: list[LogFileEntry]
+        self._source = source
+        self._directory = os.path.abspath(directory)
+        self._fileNamePattern = fileNamePattern
+        self._extractors = extractors
 
-    def loadLogFileEntries(self):
-        self.logFileEntries = []
-        for logFile in self._logFiles:
-            self.logFileEntries.extend(logFile.getEntries(self.getDataFromLine))
+    def getEntriesAsDataFrame(self, relevantDates: List[date]) -> pd.DataFrame:
+        entries = []
+        for relevantDate in relevantDates:
+            try:
+                fileName = os.path.join(self._directory, relevantDate.strftime(self._fileNamePattern))
+                with open(fileName, mode='r') as f:
+                    for line in f:
+                        strippedLine = line.strip()
+                        dataList = self.getDataListFromLine(strippedLine)
+                        if dataList:
+                            timePart = self.getTimestampFromLine(strippedLine)
+                            timestamp = datetime.combine(relevantDate, timePart)
+                            for data in dataList:
+                                # add the pieces of information we already have here, so extractors don't have to
+                                data[columns.Source] = self._source
+                                data[columns.Timestamp] = timestamp
+                                data[columns.FileName] = fileName
+                                entries.append(data)
+            except IOError:
+                pass
 
-    def getDataFromLine(self, line):
+        index = np.arange(0, len(entries))
+        result = pd.DataFrame(data=entries, index=index)
+        return result
+
+    def getDataListFromLine(self, line):
         """
-        Check if canonical logging is found, otherwise delegate to derived class
+        Check if canonical logging is found, otherwise delegate to derived class and/or extractors
         """
-        substringIndex = line.find('.logCanonicalJson')
-        if substringIndex < 0:
-            result = self.getDataFromLineCore(line)
+        canonicalSubstringIndex = line.find('.logCanonicalJson')
+        if canonicalSubstringIndex < 0:
+            result = self.getDataListFromExtractors(line)
         else:
-            time = self.getTimeFromLine(line)
-            data = json.loads(line[substringIndex+17:])
-            result = time, data
+            result = [json.loads(line[canonicalSubstringIndex + 17:])]
         return result
 
     # noinspection PyUnusedLocal
-    def getDataFromLineCore(self, line):
+    def getDataListFromExtractors(self, line) -> List[dict]:
         """
-        Override in derived classes to indicate whether to use the given line
+        Override in derived classes to add specific processing of the given line
         :param line:
         :return: True if the line is to be used, otherwise False
         :rtype: dict
         """
-        return None
-
-    def getDataFromSubstringInLine(self, line, parameters):
-        """
-        Can be called from derived classes to extract text when a given substring is found
-        :param line: the line to search
-        :param parameters: tuple of substring, key and valueGetter
-        :return: tuple of time and the extracted value from the first substring that was found
-        """
-        for (substring, key, valueGetter) in parameters:
-            substringIndex = line.find(substring)
-            if substringIndex >= 0:
-                time = self.getTimeFromLine(line)
-                value = valueGetter(substringIndex)
-                data = {key: value}
-                result = time, data
-                break
-        else:
-            result = (None, None)
+        result = [data for data in (extractor.getDataFromLine(line) for extractor in self._extractors) if data]
         return result
 
     # noinspection PyMethodMayBeStatic
-    def getTimeFromLine(self, line):
+    def getTimestampFromLine(self, line) -> time:
         """
         Extracts the time (not the date!) from the given line. Override in derived classes for different date format
         :param line: the current line
@@ -70,11 +73,4 @@ class BaseLogFileReader(object):
         :rtype: datetime
         """
         result = datetime.time(datetime.strptime(line[:8], '%H:%M:%S'))
-        return result
-
-    def toDataFrame(self):
-        data = [entry.getFullData() for entry in self.logFileEntries]
-        index = np.arange(0, len(data))
-        result = pd.DataFrame(data, index)
-        result.set_index(TimestampColumn, inplace=True)
         return result

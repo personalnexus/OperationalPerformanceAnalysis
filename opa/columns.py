@@ -1,4 +1,5 @@
-Source = 'Source'
+Application = 'Application'
+Instance = 'Instance'
 FileName = 'FileName'
 Line = 'Line'
 Timestamp = 'Timestamp'

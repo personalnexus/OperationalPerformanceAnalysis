@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from typing import Iterable
-from opa.readers.baseReader import BaseLogFileReader
+from readers import BaseLogFileReader
 from opa import columns
 import pandas as pd
 

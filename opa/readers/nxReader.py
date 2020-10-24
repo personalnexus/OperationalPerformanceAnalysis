@@ -1,13 +1,12 @@
-from opa.readers.baseReader import BaseLogFileReader
-from opa.extractors import Substring
+from opa import BaseLogFileReader
+from opa.extractors.substring import Substring
 
 
 class NxLogFileReader(BaseLogFileReader):
 
-    def __init__(self, directory: str, fileNamePattern: str):
+    def __init__(self, applicationInstance: str):
         super(NxLogFileReader, self).__init__('Nx',
-                                              directory,
-                                              fileNamePattern,
+                                              applicationInstance,
                                               [
                                                   Substring('.logPerformance',
                                                             lambda line, i: {'Publish': int(line[i + 48:])},
